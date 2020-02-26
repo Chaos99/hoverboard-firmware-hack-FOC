@@ -27,6 +27,7 @@
 #include "config.h"
 #include "comms.h"
 #include "eeprom.h"
+#include "sensorcoms_single.h"
 
 #if defined(DEBUG_I2C_LCD) || defined(SUPPORT_LCD)
   #include "hd44780.h"
@@ -374,6 +375,11 @@ int main(void) {
     LCD_WriteString(&lcd, "m)");
   #endif
 
+  #ifdef SENSOR_SERIAL_USART3
+  sensor_init();
+  consoleLog("Sensor init done\r\n");
+  #endif
+
   int16_t lastSpeedL = 0, lastSpeedR = 0;
   int16_t speedL = 0, speedR = 0;
 
@@ -603,6 +609,14 @@ int main(void) {
 
     #endif
 
+    #ifdef VARIANT_HOVERBOARD
+    sensor_read_data();  
+    consoleLog("# ");  
+    cmd1 = CLAMP((sensor_data.complete.Angle - INPUT_MID) * 2, INPUT_MIN, INPUT_MAX);
+    cmd2 = CLAMP((sensor_data.complete.Angle - INPUT_MID) * 2, INPUT_MIN, INPUT_MAX);
+
+    #endif
+
     // Calculate measured average speed. The minus sign (-) is beacause motors spin in opposite directions
     #if   !defined(INVERT_L_DIRECTION) && !defined(INVERT_R_DIRECTION)
       speedAvg    = ( rtY_Left.n_mot - rtY_Right.n_mot) / 2;
@@ -784,13 +798,17 @@ int main(void) {
           setScopeChannel(0, (int16_t)adc_buffer.l_tx2);        // 1: ADC1
           setScopeChannel(1, (int16_t)adc_buffer.l_rx2);        // 2: ADC2
         #endif
+        #ifdef SENSOR_SERIAL_USART3
+          setScopeChannel(0, (int16_t)sensor_data.complete.Angle);        // 1: Angle
+          setScopeChannel(1, (int16_t)sensor_data.complete.AA_55);        // 2: Step
+        #endif
         setScopeChannel(2, (int16_t)speedR);                    // 3: output command: [-1000, 1000]
         setScopeChannel(3, (int16_t)speedL);                    // 4: output command: [-1000, 1000]
         setScopeChannel(4, (int16_t)adc_buffer.batt1);          // 5: for battery voltage calibration
         setScopeChannel(5, (int16_t)(batVoltage * BAT_CALIB_REAL_VOLTAGE / BAT_CALIB_ADC)); // 6: for verifying battery voltage calibration
         setScopeChannel(6, (int16_t)board_temp_adcFilt);        // 7: for board temperature calibration
         setScopeChannel(7, (int16_t)board_temp_deg_c);          // 8: for verifying board temperature calibration
-        consoleScope();
+        //consoleScope();
 
       // ####### FEEDBACK SERIAL OUT #######
       #elif defined(FEEDBACK_SERIAL_USART2) || defined(FEEDBACK_SERIAL_USART3)

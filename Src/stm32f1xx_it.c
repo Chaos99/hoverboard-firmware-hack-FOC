@@ -254,6 +254,16 @@ void DMA1_Channel7_IRQHandler(void)
 }
 #endif
 
+#ifdef SENSOR_SERIAL_USART3
+void USART3_IT_IRQ(USART_TypeDef *us);
+
+extern UART_HandleTypeDef huart3;
+
+void USART3_IRQHandler(void){
+    USART3_IT_IRQ(huart3.Instance);
+}
+#endif
+
 /******************************************************************************/
 /* STM32F1xx Peripheral Interrupt Handlers                                    */
 /* Add here the Interrupt Handlers for the used peripherals.                  */

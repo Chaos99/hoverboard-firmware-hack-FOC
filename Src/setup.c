@@ -37,6 +37,7 @@ pb10 usart3 dma1 channel2/3
 
 #include "defines.h"
 #include "config.h"
+#include "control_structures.h"
 
 TIM_HandleTypeDef htim_right;
 TIM_HandleTypeDef htim_left;
@@ -140,6 +141,9 @@ void UART2_Init(void) {
 #endif
 
 #if defined(CONTROL_SERIAL_USART3) || defined(FEEDBACK_SERIAL_USART3) || defined(DEBUG_SERIAL_USART3) || defined(SENSOR_SERIAL_USART3)
+
+extern volatile SERIAL_USART_BUFFER usart3_it_RXbuffer;
+extern volatile SERIAL_USART_BUFFER usart3_it_TXbuffer;
 void UART3_Init(void) {
 
   /* The code below is commented out - otwerwise Serial Receive does not work */
@@ -151,12 +155,15 @@ void UART3_Init(void) {
   //   HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 2);
   //   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
   // #endif
+  //memset((void *)&usart3_it_TXbuffer, 0, sizeof(usart3_it_TXbuffer));
+  //memset((void *)&usart3_it_RXbuffer, 0, sizeof(usart3_it_RXbuffer));
+
 
   // Disable serial interrupt - it is not needed 
-  HAL_NVIC_DisableIRQ(DMA1_Channel3_IRQn);  // Rx Channel
-  HAL_NVIC_DisableIRQ(DMA1_Channel2_IRQn);  // Tx Channel
+  // HAL_NVIC_DisableIRQ(DMA1_Channel3_IRQn);  // Rx Channel
+  // HAL_NVIC_DisableIRQ(DMA1_Channel2_IRQn);  // Tx Channel
 
-  __HAL_RCC_DMA1_CLK_ENABLE();
+  // __HAL_RCC_DMA1_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_USART3_CLK_ENABLE();
 
@@ -231,7 +238,7 @@ void UART3_Init(void) {
     DMA1->IFCR              = DMA_IFCR_CTCIF2 | DMA_IFCR_CHTIF2 | DMA_IFCR_CGIF2;
   #endif 
   #ifdef SENSOR_SERIAL_USART3
-    HAL_NVIC_SetPriority(USART3_IRQn, 1, 0);
+    HAL_NVIC_SetPriority(USART3_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(USART3_IRQn);
 
     __HAL_UART_ENABLE_IT(&huart3, UART_IT_RXNE);

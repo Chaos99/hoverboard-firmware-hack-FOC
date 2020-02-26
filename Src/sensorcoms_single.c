@@ -56,6 +56,7 @@ int serial_usart_buffer_count(volatile SERIAL_USART_BUFFER *usart_buf) {
     return count;
 }
 
+
 void serial_usart_buffer_push(volatile SERIAL_USART_BUFFER *usart_buf, SERIAL_USART_IT_BUFFERTYPE value) {
     int count = serial_usart_buffer_count(usart_buf);
     if (count >=  SERIAL_USART_BUFFER_SIZE-2){
@@ -90,9 +91,9 @@ void USART_sensor_addTXshort(SERIAL_USART_IT_BUFFERTYPE value) {
 
 SERIAL_USART_IT_BUFFERTYPE USART_sensor_getrx() {
         unsigned short temp =  serial_usart_buffer_pop(&usart3_it_RXbuffer);
-        //char t[20];
-        //sprintf(t, "Raw Buffer: %hi \r\n", temp);
-        //consoleLog( t);
+        char t[200];
+        sprintf(t, "Raw Buffer: %hi \r\n", temp);
+        consoleLog( t);
         return temp;
 }
 
@@ -218,6 +219,7 @@ void sensor_read_data(){
     int process = 0;
     unsigned char orgsw = s->complete.AA_55;
     unsigned char *dest = s->buffer;
+    if (remaining == 0) consoleLog("Buffer empty\r\n");
     while (remaining > 0) { // while bytes left in the uart buffer
         short c;
         c = USART_sensor_getrx(); // get two bytes from the buffer
@@ -449,4 +451,48 @@ int getSensorBaudRate(int side) {
     return (int)rate;
 }
 
+int USART3_IT_starttx() {
+    __HAL_UART_ENABLE_IT(&huart3, UART_IT_TXE);
+    return 1;
+}
+
+int USART3_IT_send(unsigned char *data, int len) {
+
+    int count = serial_usart_buffer_count(&usart3_it_TXbuffer);
+    if (count + len + 1 > SERIAL_USART_BUFFER_SIZE-3){
+        usart3_it_TXbuffer.overflow++;
+        return -1;
+    }
+
+    for (int i = 0; i < len; i++){
+        serial_usart_buffer_push(&usart3_it_TXbuffer, (SERIAL_USART_IT_BUFFERTYPE) data[i]);
+    }
+
+    return USART3_IT_starttx();
+}
+
+//////////////////////////////////////////////////////
+// called from actual IRQ routines
+void USART3_IT_IRQ(USART_TypeDef *us) {
+  volatile uint32_t *SR     = &us->SR;  // USART Status register
+  volatile uint32_t *DR     = &us->DR;  // USART Data register
+  volatile uint32_t *CR1    = &us->CR1; // USART Control register 1
+
+  // Transmit
+  if ((*SR) & UART_FLAG_TXE) {
+    if (serial_usart_buffer_count(&usart3_it_TXbuffer) == 0) {
+      *CR1 = (*CR1 & ~(USART_CR1_TXEIE | USART_CR1_TCIE));
+    } else {
+      *DR = (serial_usart_buffer_pop(&usart3_it_TXbuffer) & 0x1ff);
+    }
+  }
+
+  // Receive
+  if (((*SR) & UART_FLAG_RXNE)) {
+    SERIAL_USART_IT_BUFFERTYPE rword = (*DR) & 0x01FF;
+    serial_usart_buffer_push(&usart3_it_RXbuffer, rword);
+  }
+
+  return;
+}
 
