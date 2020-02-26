@@ -329,6 +329,7 @@
   //#define CONTROL_SERIAL_USART3         // right sensor board cable, disable if I2C (nunchuk or lcd) is used! For Arduino control check the hoverSerial.ino
   //#define FEEDBACK_SERIAL_USART3        // right sensor board cable, disable if I2C (nunchuk or lcd) is used!
   #define SENSOR_SERIAL_USART3             // original sensor board on USART3 (right)
+  #define SENSOR_WORDS 10
 #endif
 // ######################## END OF VARIANT_HOVERBOARD SETTINGS #########################
 

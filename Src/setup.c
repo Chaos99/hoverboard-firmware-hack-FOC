@@ -139,7 +139,7 @@ void UART2_Init(void) {
 }
 #endif
 
-#if defined(CONTROL_SERIAL_USART3) || defined(FEEDBACK_SERIAL_USART3) || defined(DEBUG_SERIAL_USART3)
+#if defined(CONTROL_SERIAL_USART3) || defined(FEEDBACK_SERIAL_USART3) || defined(DEBUG_SERIAL_USART3) || defined(SENSOR_SERIAL_USART3)
 void UART3_Init(void) {
 
   /* The code below is commented out - otwerwise Serial Receive does not work */
@@ -167,7 +167,7 @@ void UART3_Init(void) {
   huart3.Init.Parity          = UART_PARITY_NONE;
   huart3.Init.HwFlowCtl       = UART_HWCONTROL_NONE;
   huart3.Init.OverSampling    = UART_OVERSAMPLING_16;
-  #if defined(CONTROL_SERIAL_USART3)
+  #if defined(CONTROL_SERIAL_USART3) || defined(SENSOR_SERIAL_USART3)
     huart3.Init.Mode          = UART_MODE_TX_RX;
   #elif defined(DEBUG_SERIAL_USART3)
     huart3.Init.Mode          = UART_MODE_TX;
@@ -203,6 +203,14 @@ void UART3_Init(void) {
     __HAL_LINKDMA(&huart3, hdmarx, hdma_usart3_rx);
   #endif
 
+  #ifdef SENSOR_SERIAL_USART3
+    //memset(&GPIO_InitStruct, 0, sizeof(GPIO_InitStruct));
+    GPIO_InitStruct.Pin      = GPIO_PIN_11;
+    GPIO_InitStruct.Pull     = GPIO_NOPULL;
+    GPIO_InitStruct.Mode     = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Speed    = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  #else
   hdma_usart3_tx.Instance                     = DMA1_Channel2;
   hdma_usart3_tx.Init.Direction               = DMA_MEMORY_TO_PERIPH;
   hdma_usart3_tx.Init.PeriphInc               = DMA_PINC_DISABLE;
@@ -212,6 +220,7 @@ void UART3_Init(void) {
   hdma_usart3_tx.Init.Mode                    = DMA_NORMAL;
   hdma_usart3_tx.Init.Priority                = DMA_PRIORITY_LOW;
   HAL_DMA_Init(&hdma_usart3_tx);
+  #endif
 
   #ifdef CONTROL_SERIAL_USART3
     __HAL_LINKDMA(&huart3, hdmatx, hdma_usart3_tx);
@@ -220,7 +229,13 @@ void UART3_Init(void) {
     DMA1_Channel2->CPAR     = (uint32_t) & (USART3->DR);
     DMA1_Channel2->CNDTR    = 0;
     DMA1->IFCR              = DMA_IFCR_CTCIF2 | DMA_IFCR_CHTIF2 | DMA_IFCR_CGIF2;
-  #endif  
+  #endif 
+  #ifdef SENSOR_SERIAL_USART3
+    HAL_NVIC_SetPriority(USART3_IRQn, 1, 0);
+    HAL_NVIC_EnableIRQ(USART3_IRQn);
+
+    __HAL_UART_ENABLE_IT(&huart3, UART_IT_RXNE);
+  #endif
 }
 #endif
 
