@@ -104,7 +104,7 @@ static int16_t timeoutCntADC   = 0;  // Timeout counter for ADC Protection
 #endif
 static uint8_t timeoutFlagADC  = 0;  // Timeout Flag for for ADC Protection: 0 = OK, 1 = Problem detected (line disconnected or wrong ADC data)
 
-#if defined(CONTROL_SERIAL_USART2) || defined(CONTROL_SERIAL_USART3)
+#if defined(CONTROL_SERIAL_USART2) || defined(CONTROL_SERIAL_USART3) || defined(SENSOR_SERIAL_USART3)
   #ifdef CONTROL_IBUS
     static uint16_t ibus_chksum;
     static uint16_t ibus_captured_value[IBUS_NUM_CHANNELS];
@@ -116,12 +116,22 @@ static uint8_t timeoutFlagADC  = 0;  // Timeout Flag for for ADC Protection: 0 =
       uint8_t  checksuml;
       uint8_t  checksumh;    
     } Serialcommand;
+  #elif defined(SENSOR_SERIAL_USART3)
+    typedef struct{
+      int16_t  speed;
+      int16_t  speed2; 
+      int8_t   step;
+      int16_t   acc;
+      int16_t   acc2;
+      int8_t  rot;
+      int8_t  rot2;    
+    } Serialcommand;
   #else
     typedef struct{
       uint16_t  start; 
       int16_t   steer;
       int16_t   speed;
-      uint16_t  checksum;    
+      uint16_t  checksum;
     } Serialcommand;
   #endif
 static volatile Serialcommand command;
@@ -155,7 +165,7 @@ static int16_t    speed;                // local variable for speed. -1000 to 10
 #ifndef VARIANT_TRANSPOTTER
 	static int        cmd1;               // normalized input value. -1000 to 1000
 	static int        cmd2;               // normalized input value. -1000 to 1000
-  static int16_t  steer;                // local variable for steering. -1000 to 1000
+  static int16_t  steer = 0;                // local variable for steering. -1000 to 1000
   static int16_t  steerRateFixdt;       // local fixed-point variable for steering rate limiter
   static int16_t  speedRateFixdt;       // local fixed-point variable for speed rate limiter
   static int32_t  steerFixdt;           // local fixed-point variable for steering low-pass filter
