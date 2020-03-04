@@ -63,9 +63,9 @@ void USART_sensor_addTXshort(SERIAL_USART_IT_BUFFERTYPE value) {
 
 SERIAL_USART_IT_BUFFERTYPE USART_sensor_getrx() {
         unsigned short temp =  serial_usart_buffer_pop(&usart3_it_RXbuffer);
-        char t[200];
-        sprintf(t, "GetRx: Raw Buffer: %hi \r\n", temp);
-        consoleLog( t);
+        //char t[200];
+        //sprintf(t, "GetRx: Raw Buffer: %hi \r\n", temp);
+        //consoleLog( t);
         return temp;
 }
 
@@ -238,11 +238,7 @@ void sensor_read_data(){
         if (s->complete.AA_55 == 0x55) { // fresh copied
                 s->sensor_ok = 10;
                 if (orgsw == 0xAA) { // old value before copying
-                    //consoleLog( "Stepped On to the board\r\n");
-                    char t[100];
-                    memset(t, '\0' , sizeof(t));
-                    sprintf(t, "Get:    %hi   .", 5);
-                    consoleLog( t);
+                    consoleLog( "Stepped On to the board\r\n");
                     s->Center = s->complete.Angle;
                     if (s->foottime_ms){
                         int diff = time_ms - s->foottime_ms;
@@ -268,9 +264,7 @@ void sensor_read_data(){
         }
 
         } else {
-            //if (sensor_data[side].read_timeout==10)
-            //    consoleLog( "\r\nSensor SOF not found");
-
+    
             if (s->read_timeout > 0){
                 s->read_timeout--;
                 if (s->read_timeout == 0){

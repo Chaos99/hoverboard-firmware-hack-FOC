@@ -723,7 +723,6 @@ int main(void) {
 
       // ####### DEBUG SERIAL OUT #######
       #if defined(DEBUG_SERIAL_USART2) || defined(DEBUG_SERIAL_USART3)
-        consoleLog("#\t");
         #ifdef CONTROL_ADC
           setScopeChannel(0, (int16_t)adc_buffer.l_tx2);        // 1: ADC1
           setScopeChannel(1, (int16_t)adc_buffer.l_rx2);        // 2: ADC2
