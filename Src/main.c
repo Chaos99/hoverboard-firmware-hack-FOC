@@ -74,7 +74,6 @@ extern I2C_HandleTypeDef hi2c2;
  || defined(CONTROL_SERIAL_USART3) || defined(FEEDBACK_SERIAL_USART3) || defined(DEBUG_SERIAL_USART3) 
   extern UART_HandleTypeDef huart2;
   extern UART_HandleTypeDef huart3;
-  static UART_HandleTypeDef huart;
 #endif
 
 #if defined(DEBUG_I2C_LCD) || defined(SUPPORT_LCD)
@@ -105,7 +104,7 @@ static int16_t timeoutCntADC   = 0;  // Timeout counter for ADC Protection
 #endif
 static uint8_t timeoutFlagADC  = 0;  // Timeout Flag for for ADC Protection: 0 = OK, 1 = Problem detected (line disconnected or wrong ADC data)
 
-#if defined(CONTROL_SERIAL_USART2) || defined(CONTROL_SERIAL_USART3) || defined(SENSOR_SERIAL_USART3)
+#if defined(CONTROL_SERIAL_USART2) || defined(CONTROL_SERIAL_USART3) //|| defined(SENSOR_SERIAL_USART3)
   #ifdef CONTROL_IBUS
     static uint16_t ibus_chksum;
     static uint16_t ibus_captured_value[IBUS_NUM_CHANNELS];
@@ -117,16 +116,16 @@ static uint8_t timeoutFlagADC  = 0;  // Timeout Flag for for ADC Protection: 0 =
       uint8_t  checksuml;
       uint8_t  checksumh;    
     } Serialcommand;
-  #elif defined(SENSOR_SERIAL_USART3)
-    typedef struct{
-      int16_t  speed;
-      int16_t  speed2; 
-      int8_t   step;
-      int16_t   acc;
-      int16_t   acc2;
-      int8_t  rot;
-      int8_t  rot2;    
-    } Serialcommand;
+  // #elif defined(SENSOR_SERIAL_USART3)
+  //   typedef struct{
+  //     int16_t  speed;
+  //     int16_t  speed2; 
+  //     int8_t   step;
+  //     int16_t   acc;
+  //     int16_t   acc2;
+  //     int8_t  rot;
+  //     int8_t  rot2;    
+  //   } Serialcommand;
   #else
     typedef struct{
       uint16_t  start; 
@@ -211,41 +210,7 @@ void poweroff(void) {
   //  }
 }
 
-
-int main(void) {
-
-  HAL_Init();
-  __HAL_RCC_AFIO_CLK_ENABLE();
-  HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
-  /* System interrupt init*/
-  /* MemoryManagement_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(MemoryManagement_IRQn, 0, 0);
-  /* BusFault_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(BusFault_IRQn, 0, 0);
-  /* UsageFault_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(UsageFault_IRQn, 0, 0);
-  /* SVCall_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SVCall_IRQn, 0, 0);
-  /* DebugMonitor_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DebugMonitor_IRQn, 0, 0);
-  /* PendSV_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(PendSV_IRQn, 0, 0);
-  /* SysTick_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
-
-  SystemClock_Config();
-
-  __HAL_RCC_DMA1_CLK_DISABLE();
-  MX_GPIO_Init();
-  MX_TIM_Init();
-  MX_ADC1_Init();
-  MX_ADC2_Init();
-
-  HAL_GPIO_WritePin(OFF_PORT, OFF_PIN, GPIO_PIN_SET);
-
-  HAL_ADC_Start(&hadc1);
-  HAL_ADC_Start(&hadc2);
-
+void init_matlab() {
 // Matlab Init
 // ###############################################################################
   
@@ -281,6 +246,58 @@ int main(void) {
   BLDC_controller_initialize(rtM_Right);
 
 // ###############################################################################
+}
+
+int main(void) {
+
+  HAL_Init();
+  __HAL_RCC_AFIO_CLK_ENABLE();
+  HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
+  /* System interrupt init*/
+  /* MemoryManagement_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(MemoryManagement_IRQn, 0, 0);
+  /* BusFault_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(BusFault_IRQn, 0, 0);
+  /* UsageFault_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(UsageFault_IRQn, 0, 0);
+  /* SVCall_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(SVCall_IRQn, 0, 0);
+  /* DebugMonitor_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DebugMonitor_IRQn, 0, 0);
+  /* PendSV_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(PendSV_IRQn, 0, 0);
+  /* SysTick_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(SysTick_IRQn, 1, 0);
+
+  SystemClock_Config();
+
+  __HAL_RCC_DMA1_CLK_DISABLE();
+  MX_GPIO_Init();
+  MX_TIM_Init();
+  MX_ADC1_Init();
+  MX_ADC2_Init();
+
+  UART2_Init();
+  HAL_Delay(50);
+  consoleLog("UART2 init done\r\n");
+  HAL_Delay(50);
+  consoleLog("2nd output works\r\n");
+  
+  UART3_Init();
+  HAL_Delay(50);
+  consoleLog("UART3 init done\r\n");
+
+  HAL_GPIO_WritePin(OFF_PORT, OFF_PIN, GPIO_PIN_SET);
+
+  HAL_ADC_Start(&hadc1);
+  HAL_ADC_Start(&hadc2);
+
+  init_matlab();
+
+  sensor_init(); // sets internal structs to 0
+  consoleLog("sensor init done\r\n");
+
+  consoleLog("beep\r\n");
 
   for (int i = 8; i >= 0; i--) {
     buzzerFreq = (uint8_t)i;
@@ -289,96 +306,7 @@ int main(void) {
   buzzerFreq = 0;
 
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_SET);
-
-  #ifdef VARIANT_TRANSPOTTER
-    int  lastDistance = 0;
-    enable = 1;
-    uint8_t checkRemote = 0;
-
-    HAL_FLASH_Unlock();
-
-    /* EEPROM Init */
-    EE_Init();
-
-    EE_ReadVariable(VirtAddVarTab[0], &saveValue);
-
-    HAL_FLASH_Lock();
-    float setDistance = saveValue / 1000.0;
-    if (setDistance < 0.2) {
-      setDistance = 1.0;
-    }
-  #endif
-
-  #ifdef CONTROL_PPM
-    PPM_Init();
-  #endif
-
-  #ifdef CONTROL_NUNCHUK
-    I2C_Init();
-    Nunchuk_Init();
-  #endif
-
-  #if defined(CONTROL_SERIAL_USART2) || defined(FEEDBACK_SERIAL_USART2) || defined(DEBUG_SERIAL_USART2)
-    UART2_Init();
-    huart = huart2;
-  #endif
-  #if defined(CONTROL_SERIAL_USART3) || defined(FEEDBACK_SERIAL_USART3) || defined(DEBUG_SERIAL_USART3)
-    UART3_Init();
-    huart = huart3;
-  #endif
-  #if defined(CONTROL_SERIAL_USART2) || defined(CONTROL_SERIAL_USART3)
-    HAL_UART_Receive_DMA(&huart, (uint8_t *)&command, sizeof(command));
-  #endif
-
-  #if defined(DEBUG_I2C_LCD) || defined(SUPPORT_LCD)
-    I2C_Init();
-    HAL_Delay(50);
-    lcd.pcf8574.PCF_I2C_ADDRESS = 0x27;
-      lcd.pcf8574.PCF_I2C_TIMEOUT = 5;
-      lcd.pcf8574.i2c = hi2c2;
-      lcd.NUMBER_OF_LINES = NUMBER_OF_LINES_2;
-      lcd.type = TYPE0;
-
-      if(LCD_Init(&lcd)!=LCD_OK){
-          // error occured
-          //TODO while(1);
-      }
-
-    LCD_ClearDisplay(&lcd);
-    HAL_Delay(5);
-    LCD_SetLocation(&lcd, 0, 0);
-    #ifdef VARIANT_TRANSPOTTER
-      LCD_WriteString(&lcd, "TranspOtter V2.1");
-    #else
-      LCD_WriteString(&lcd, "Hover V2.0");
-    #endif
-    LCD_SetLocation(&lcd, 0, 1);
-    LCD_WriteString(&lcd, "Initializing...");
-  #endif
-
-  #if defined(VARIANT_TRANSPOTTER) && defined(SUPPORT_LCD)
-    LCD_ClearDisplay(&lcd);
-    HAL_Delay(5);
-    LCD_SetLocation(&lcd, 0, 1);
-    LCD_WriteString(&lcd, "Bat:");
-    LCD_SetLocation(&lcd, 8, 1);
-    LCD_WriteString(&lcd, "V");
-
-    LCD_SetLocation(&lcd, 15, 1);
-    LCD_WriteString(&lcd, "A");
-
-    LCD_SetLocation(&lcd, 0, 0);
-    LCD_WriteString(&lcd, "Len:");
-    LCD_SetLocation(&lcd, 8, 0);
-    LCD_WriteString(&lcd, "m(");
-    LCD_SetLocation(&lcd, 14, 0);
-    LCD_WriteString(&lcd, "m)");
-  #endif
-
-  #ifdef SENSOR_SERIAL_USART3
-  sensor_init();
-  consoleLog("Sensor init done\r\n");
-  #endif
+ 
 
   int16_t lastSpeedL = 0, lastSpeedR = 0;
   int16_t speedL = 0, speedR = 0;
@@ -387,6 +315,7 @@ int main(void) {
   int16_t board_temp_adcFilt  = adc_buffer.temp;
   int16_t board_temp_deg_c;
 
+  consoleLog("Enter main loop\r\n");
 
   while(1) {
     HAL_Delay(DELAY_IN_MAIN_LOOP); //delay in ms
@@ -611,7 +540,7 @@ int main(void) {
 
     #ifdef VARIANT_HOVERBOARD
     sensor_read_data();  
-    consoleLog("# ");  
+    //consoleLog("# ");  
     cmd1 = CLAMP((sensor_data.complete.Angle - INPUT_MID) * 2, INPUT_MIN, INPUT_MAX);
     cmd2 = CLAMP((sensor_data.complete.Angle - INPUT_MID) * 2, INPUT_MIN, INPUT_MAX);
 
@@ -794,6 +723,7 @@ int main(void) {
 
       // ####### DEBUG SERIAL OUT #######
       #if defined(DEBUG_SERIAL_USART2) || defined(DEBUG_SERIAL_USART3)
+        consoleLog("#\t");
         #ifdef CONTROL_ADC
           setScopeChannel(0, (int16_t)adc_buffer.l_tx2);        // 1: ADC1
           setScopeChannel(1, (int16_t)adc_buffer.l_rx2);        // 2: ADC2
@@ -836,6 +766,7 @@ int main(void) {
     HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
     // ####### POWEROFF BY POWER-BUTTON #######
     if (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) {
+      consoleLog("Power button pressed\r\n");
       enable = 0;                                             // disable motors
       while (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) {}    // wait until button is released
       if(__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST)) {               // do not power off after software reset (from a programmer/debugger)
@@ -848,24 +779,32 @@ int main(void) {
 
     // ####### BEEP AND EMERGENCY POWEROFF #######
     if (errCode_Left || errCode_Right) {    // disable motors and beep in case of Motor error - fast beep
+      if (enable)
+        consoleLog("Motor Error\r\n");
       enable        = 0;
       buzzerFreq    = 8;
       buzzerPattern = 1;
     } else if ((TEMP_POWEROFF_ENABLE && board_temp_deg_c >= TEMP_POWEROFF && speedAvgAbs < 20) || (batVoltage < BAT_LOW_DEAD && speedAvgAbs < 20)) {  // poweroff before mainboard burns OR low bat 3
+      consoleLog("Overtemp or battery low\r\n");
       poweroff();
     } else if (TEMP_WARNING_ENABLE && board_temp_deg_c >= TEMP_WARNING) {  // beep if mainboard gets hot
+      consoleLog("Temp Warning\r\n");
       buzzerFreq    = 4;
       buzzerPattern = 1;
     } else if (batVoltage < BAT_LOW_LVL1 && batVoltage >= BAT_LOW_LVL2 && BAT_LOW_LVL1_ENABLE) {  // low bat 1: slow beep
+      consoleLog("Low Battery Wraning 1\r\n");
       buzzerFreq    = 5;
       buzzerPattern = 42;
     } else if (batVoltage < BAT_LOW_LVL2 && batVoltage >= BAT_LOW_DEAD && BAT_LOW_LVL2_ENABLE) {  // low bat 2: fast beep
+      consoleLog("Very Low Battery Warning 2\r\n");
       buzzerFreq    = 5;
       buzzerPattern = 6;
     } else if (timeoutFlagADC || timeoutFlagSerial) {  // beep in case of ADC or Serial timeout - fast beep      
+      consoleLog("ADC/Serail timeout\r\n");
       buzzerFreq    = 24;
       buzzerPattern = 1;
     } else if (BEEPS_BACKWARD && ((speed < -50 && speedAvg < 0) || MultipleTapBreak.b_multipleTap)) {  // backward beep
+      consoleLog("Backing up ... beepbeepbeep\r\n");
       buzzerFreq    = 5;
       buzzerPattern = 1;
     } else {  // do not beep
@@ -881,6 +820,7 @@ int main(void) {
       inactivity_timeout_counter ++;
     }
     if (inactivity_timeout_counter > (INACTIVITY_TIMEOUT * 60 * 1000) / (DELAY_IN_MAIN_LOOP + 1)) {  // rest of main loop needs maybe 1ms
+      consoleLog("Timeout Poweroff\r\n");
       poweroff();
     }
 
@@ -1066,11 +1006,11 @@ void SystemClock_Config(void) {
 
   /**Initializes the CPU, AHB and APB busses clocks
     */
-  RCC_ClkInitStruct.ClockType           = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource        = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider       = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider      = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider      = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.ClockType      = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
   HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2);
 
@@ -1088,5 +1028,10 @@ void SystemClock_Config(void) {
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
   /* SysTick_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(SysTick_IRQn, 1, 0);
+
+  // enable the DWT counter for cycle timing
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+  DWT->CYCCNT = 0;
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 }

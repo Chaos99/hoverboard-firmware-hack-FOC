@@ -23,8 +23,6 @@ extern UART_HandleTypeDef huart2;
 SENSOR_DATA sensor_data;
 SENSOR_LIGHTS sensorlights;
 
-volatile SERIAL_USART_BUFFER usart3_it_RXbuffer;
-volatile SERIAL_USART_BUFFER usart3_it_TXbuffer;
 ///////////////////////////
 // sends data on sensor port.
 // set startframe=1 to add 0x100 to first byte of data.
@@ -50,32 +48,6 @@ int USART_sensorSend(unsigned char *data, int len, int endframe){
     return 1;
 }
 
-int serial_usart_buffer_count(volatile SERIAL_USART_BUFFER *usart_buf) {
-    int count = usart_buf->head - usart_buf->tail;
-    if (count < 0) count += SERIAL_USART_BUFFER_SIZE;
-    return count;
-}
-
-
-void serial_usart_buffer_push(volatile SERIAL_USART_BUFFER *usart_buf, SERIAL_USART_IT_BUFFERTYPE value) {
-    int count = serial_usart_buffer_count(usart_buf);
-    if (count >=  SERIAL_USART_BUFFER_SIZE-2){
-        usart_buf->overflow++;
-        return;
-    }
-
-    usart_buf->buff[usart_buf->head] = value;
-    usart_buf->head = ((usart_buf->head + 1 ) % SERIAL_USART_BUFFER_SIZE);
-}
-
-SERIAL_USART_IT_BUFFERTYPE serial_usart_buffer_pop(volatile SERIAL_USART_BUFFER *usart_buf) {
-  SERIAL_USART_IT_BUFFERTYPE t = 0;
-  if (usart_buf->head != usart_buf->tail){
-      t = usart_buf->buff[usart_buf->tail];
-      usart_buf->tail = ((usart_buf->tail + 1 ) % SERIAL_USART_BUFFER_SIZE);
-  }
-  return t;
-}
 
 int USART_sensor_rxcount(){
         return  serial_usart_buffer_count(&usart3_it_RXbuffer);
@@ -92,17 +64,16 @@ void USART_sensor_addTXshort(SERIAL_USART_IT_BUFFERTYPE value) {
 SERIAL_USART_IT_BUFFERTYPE USART_sensor_getrx() {
         unsigned short temp =  serial_usart_buffer_pop(&usart3_it_RXbuffer);
         char t[200];
-        sprintf(t, "Raw Buffer: %hi \r\n", temp);
+        sprintf(t, "GetRx: Raw Buffer: %hi \r\n", temp);
         consoleLog( t);
         return temp;
 }
 
 ///////////////////////////
 // starts transmit from buffer on specific port, if data present
-extern UART_HandleTypeDef huart3;
 int USART_sensor_starttx(){
-    __HAL_UART_ENABLE_IT(&huart3, UART_IT_TXE);
-    return 1;
+    consoleLog("startx\r\n");
+    return USART3_IT_starttx();
 }
 
 
@@ -219,11 +190,11 @@ void sensor_read_data(){
     int process = 0;
     unsigned char orgsw = s->complete.AA_55;
     unsigned char *dest = s->buffer;
-    if (remaining == 0) consoleLog("Buffer empty\r\n");
+    
     while (remaining > 0) { // while bytes left in the uart buffer
         short c;
         c = USART_sensor_getrx(); // get two bytes from the buffer
-
+        if (remaining == 0) consoleLog("rx\r\n");
         if (c & 0x100) { // valid 9 bit start byte?
             // if we have buffered data of at least angle and AA55, start copy
             if ((s->bytecount >= MIN_SENSOR_WORDS) && !s->framecopied){
@@ -449,50 +420,5 @@ int getSensorBaudRate(int side) {
 
     // may be zero
     return (int)rate;
-}
-
-int USART3_IT_starttx() {
-    __HAL_UART_ENABLE_IT(&huart3, UART_IT_TXE);
-    return 1;
-}
-
-int USART3_IT_send(unsigned char *data, int len) {
-
-    int count = serial_usart_buffer_count(&usart3_it_TXbuffer);
-    if (count + len + 1 > SERIAL_USART_BUFFER_SIZE-3){
-        usart3_it_TXbuffer.overflow++;
-        return -1;
-    }
-
-    for (int i = 0; i < len; i++){
-        serial_usart_buffer_push(&usart3_it_TXbuffer, (SERIAL_USART_IT_BUFFERTYPE) data[i]);
-    }
-
-    return USART3_IT_starttx();
-}
-
-//////////////////////////////////////////////////////
-// called from actual IRQ routines
-void USART3_IT_IRQ(USART_TypeDef *us) {
-  volatile uint32_t *SR     = &us->SR;  // USART Status register
-  volatile uint32_t *DR     = &us->DR;  // USART Data register
-  volatile uint32_t *CR1    = &us->CR1; // USART Control register 1
-
-  // Transmit
-  if ((*SR) & UART_FLAG_TXE) {
-    if (serial_usart_buffer_count(&usart3_it_TXbuffer) == 0) {
-      *CR1 = (*CR1 & ~(USART_CR1_TXEIE | USART_CR1_TCIE));
-    } else {
-      *DR = (serial_usart_buffer_pop(&usart3_it_TXbuffer) & 0x1ff);
-    }
-  }
-
-  // Receive
-  if (((*SR) & UART_FLAG_RXNE)) {
-    SERIAL_USART_IT_BUFFERTYPE rword = (*DR) & 0x01FF;
-    serial_usart_buffer_push(&usart3_it_RXbuffer, rword);
-  }
-
-  return;
 }
 

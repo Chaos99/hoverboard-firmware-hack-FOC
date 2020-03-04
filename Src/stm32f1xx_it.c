@@ -34,14 +34,11 @@
 #include "stm32f1xx_hal.h"
 #include "stm32f1xx.h"
 #include "stm32f1xx_it.h"
-#include "defines.h"
 #include "config.h"
 
-extern DMA_HandleTypeDef hdma_i2c2_rx;
-extern DMA_HandleTypeDef hdma_i2c2_tx;
-extern I2C_HandleTypeDef hi2c2;
 
-extern DMA_HandleTypeDef hdma_usart2_rx;
+
+extern DMA_HandleTypeDef hdma_usart2_rx; // in setup.c
 extern DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN 0 */
@@ -162,9 +159,6 @@ void PendSV_Handler(void) {
 /**
 * @brief This function handles System tick timer.
 */
-#ifdef CONTROL_PPM
-void PPM_SysTick_Callback(void);
-#endif
 void SysTick_Handler(void) {
   /* USER CODE BEGIN SysTick_IRQn 0 */
 
@@ -172,89 +166,52 @@ void SysTick_Handler(void) {
   HAL_IncTick();
   HAL_SYSTICK_IRQHandler();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-#ifdef CONTROL_PPM
-  PPM_SysTick_Callback();
-#endif
+
   /* USER CODE END SysTick_IRQn 1 */
 }
 
-#ifdef CONTROL_NUNCHUK
-extern I2C_HandleTypeDef hi2c2;
-void I2C1_EV_IRQHandler(void)
+/////////////////////////////////////////
+// EXTI interrupts - used for HallInterrupt, Softwarewareserial, and PWM
+
+void EXTI0_IRQHandler(void)
 {
-  HAL_I2C_EV_IRQHandler(&hi2c2);
+    __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_0);
+
 }
 
-void I2C1_ER_IRQHandler(void)
+void EXTI1_IRQHandler(void)
 {
-  HAL_I2C_ER_IRQHandler(&hi2c2);
+    __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_1);
+
 }
 
-/**
-* @brief This function handles DMA1 channel4 global interrupt.
-*/
-void DMA1_Channel4_IRQHandler(void)
+void EXTI2_IRQHandler(void)
 {
-  /* USER CODE BEGIN DMA1_Channel4_IRQn 0 */
+    __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_2);
 
-  /* USER CODE END DMA1_Channel4_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_i2c2_tx);
-  /* USER CODE BEGIN DMA1_Channel4_IRQn 1 */
-
-  /* USER CODE END DMA1_Channel4_IRQn 1 */
 }
 
-/**
-* @brief This function handles DMA1 channel5 global interrupt.
-*/
-void DMA1_Channel5_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA1_Channel5_IRQn 0 */
-
-  /* USER CODE END DMA1_Channel5_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_i2c2_rx);
-  /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-
-  /* USER CODE END DMA1_Channel5_IRQn 1 */
-}
-#endif
-
-#ifdef CONTROL_PPM
 void EXTI3_IRQHandler(void)
 {
-    PPM_ISR_Callback();
+
     __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_3);
-}
-#endif
 
-#ifdef CONTROL_SERIAL_USART2
-void DMA1_Channel6_IRQHandler(void)
+}
+
+void EXTI4_IRQHandler(void)
 {
-  /* USER CODE BEGIN DMA1_Channel4_IRQn 0 */
+    __HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_4);
+}
+/////////////////////////////////////////
 
-  /* USER CODE END DMA1_Channel4_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_usart2_rx);
-  /* USER CODE BEGIN DMA1_Channel4_IRQn 1 */
+void USART2_IT_IRQ(USART_TypeDef *us);
 
-  /* USER CODE END DMA1_Channel4_IRQn 1 */
+extern UART_HandleTypeDef huart2;
+
+void USART2_IRQHandler(void){
+    USART2_IT_IRQ(huart2.Instance);
 }
 
-/**
-* @brief This function handles DMA1 channel5 global interrupt.
-*/
-void DMA1_Channel7_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA1_Channel5_IRQn 0 */
-
-  /* USER CODE END DMA1_Channel5_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_usart2_tx);
-  /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-
-  /* USER CODE END DMA1_Channel5_IRQn 1 */
-}
-#endif
-
-#ifdef SENSOR_SERIAL_USART3
 void USART3_IT_IRQ(USART_TypeDef *us);
 
 extern UART_HandleTypeDef huart3;
@@ -262,7 +219,9 @@ extern UART_HandleTypeDef huart3;
 void USART3_IRQHandler(void){
     USART3_IT_IRQ(huart3.Instance);
 }
-#endif
+//
+/////////////////////////////////////////
+
 
 /******************************************************************************/
 /* STM32F1xx Peripheral Interrupt Handlers                                    */

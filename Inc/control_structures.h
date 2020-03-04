@@ -24,17 +24,6 @@
 
 //// control structures used in firmware
 
-#define SERIAL_USART_IT_BUFFERTYPE unsigned short
-#define SERIAL_USART_BUFFER_SIZE 1024 // TODO: implement send_wait routine..
-typedef struct tag_serial_usart_buffer {
-    SERIAL_USART_IT_BUFFERTYPE buff[SERIAL_USART_BUFFER_SIZE];
-    int head;
-    int tail;
-
-    // count of buffer overflows
-    unsigned int overflow;
-
-} SERIAL_USART_BUFFER;
 
 #pragma pack(push, 1)
 typedef struct tag_sensor_frame{
