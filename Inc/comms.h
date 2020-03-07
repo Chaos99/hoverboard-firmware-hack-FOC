@@ -52,6 +52,7 @@ SERIAL_USART_IT_BUFFERTYPE serial_usart_buffer_pop  (volatile SERIAL_USART_BUFFE
 void setScopeChannel(uint8_t ch, int16_t val);
 void consoleScope(void);
 void consoleLog(char *message);
+void consoleLogLowPrio(char *message);
 
 #endif
 
