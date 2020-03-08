@@ -448,7 +448,8 @@ int main(void) {
     cmd1 = 0; //CLAMP((sensor_data.complete.Angle/3), INPUT_MIN, INPUT_MAX); // steer
     if (sensor_data.complete.AA_55 == 85) // foot on sensor
     {
-      cmd2 = CLAMP((sensor_data.complete.Angle/3), INPUT_MIN, INPUT_MAX);  //speed
+      int scaling = sensor_data.complete.Angle >> 6;
+      cmd2 = CLAMP(((scaling*scaling*scaling) >> 5) + (sensor_data.complete.Angle >> 1), INPUT_MIN, INPUT_MAX);  //speed
     }
     else
     {
@@ -478,7 +479,7 @@ int main(void) {
       if (enable == 0 && (!errCode_Left && !errCode_Right) && (sensor_data.complete.AA_55 == 85))
       {
         // if we werent moving before, only turn on for slow speeds
-        if (speedAvgAbs > 10 || (cmd2 > -50 && cmd2 < 50))
+        if (/*speedAvgAbs > 10 ||*/ (cmd2 > -50 && cmd2 < 50))
         {
           shortBeep(6);                     // make 2 beeps indicating the motor enable
           HAL_Delay(100);
@@ -567,11 +568,21 @@ int main(void) {
 
 
     // ####### BEEP AND EMERGENCY POWEROFF #######
-    if (sensor_data.complete.AA_55 != 85 && cmd2 != 0) {  //foot not on sensor
+    if (sensor_data.complete.AA_55 != 85) {  //foot not on sensor
       if (enable == 1){
-        consoleLog("Foot raised: stopping\r\n");
-        //enable        = 0;
-        cmd1 = cmd2 = 0;
+        consoleLog("Foot raised: disabeling motors\r\n");
+        enable        = 0;
+        //cmd1 = cmd2 = 0;
+        shortBeep(4);                     // make 2 beeps indicating the motor disable
+        HAL_Delay(100);
+        shortBeep(6); 
+      }
+    } 
+    if (sensor_data.complete.Angle > 4000 || sensor_data.complete.Angle < -4000) {  //wrong way around or too steep
+      if (enable == 1){
+        consoleLog("Overturned: disabeling motors\r\n");
+        enable        = 0;
+        //cmd1 = cmd2 = 0;
         shortBeep(4);                     // make 2 beeps indicating the motor disable
         HAL_Delay(100);
         shortBeep(6); 
@@ -603,9 +614,9 @@ int main(void) {
       consoleLog("ADC/Serail timeout\r\n");
       buzzerFreq    = 24;
       buzzerPattern = 1;
-    } else if (BEEPS_BACKWARD && ((speed < -50 && speedAvg < 0) || MultipleTapBreak.b_multipleTap)) {  // backward beep
-      buzzerFreq    = 5;
-      buzzerPattern = 1;
+    // } else if (BEEPS_BACKWARD && ((speed < -50 && speedAvg < 0) || MultipleTapBreak.b_multipleTap)) {  // backward beep
+    //   buzzerFreq    = 5;
+    //   buzzerPattern = 1;
     } else {  // do not beep
       buzzerFreq    = 0;
       buzzerPattern = 0;
