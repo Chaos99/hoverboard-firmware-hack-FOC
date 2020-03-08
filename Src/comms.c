@@ -14,7 +14,7 @@ volatile SERIAL_USART_BUFFER usart2_it_TXbuffer;
 
 #define UART_DMA_CHANNEL DMA1_Channel7
 
-volatile uint8_t uart_buf[100];
+volatile uint8_t uart_buf[200];
 volatile int16_t ch_buf[8];
 
 volatile SERIAL_USART_BUFFER usart3_it_TXbuffer;
@@ -25,59 +25,20 @@ void setScopeChannel(uint8_t ch, int16_t val) {
 }
 
 void consoleScope(void) {
-  #if defined DEBUG_SERIAL_SERVOTERM && (defined DEBUG_SERIAL_USART2 || defined DEBUG_SERIAL_USART3)
-    uart_buf[0] = 0xff;
-    uart_buf[1] = CLAMP(ch_buf[0]+127, 0, 255);
-    uart_buf[2] = CLAMP(ch_buf[1]+127, 0, 255);
-    uart_buf[3] = CLAMP(ch_buf[2]+127, 0, 255);
-    uart_buf[4] = CLAMP(ch_buf[3]+127, 0, 255);
-    uart_buf[5] = CLAMP(ch_buf[4]+127, 0, 255);
-    uart_buf[6] = CLAMP(ch_buf[5]+127, 0, 255);
-    uart_buf[7] = CLAMP(ch_buf[6]+127, 0, 255);
-    uart_buf[8] = CLAMP(ch_buf[7]+127, 0, 255);
-    uart_buf[9] = '\n';
-
-    if(UART_DMA_CHANNEL->CNDTR == 0) {
-      UART_DMA_CHANNEL->CCR &= ~DMA_CCR_EN;
-      UART_DMA_CHANNEL->CNDTR = 10;
-      UART_DMA_CHANNEL->CMAR  = (uint32_t)uart_buf;
-      UART_DMA_CHANNEL->CCR |= DMA_CCR_EN;
-    }
-  #endif
-
-  //#if defined DEBUG_SERIAL_ASCII && (defined DEBUG_SERIAL_USART2 || defined DEBUG_SERIAL_USART3)
     memset((void *)(uintptr_t)uart_buf, 0, sizeof(uart_buf));
     int strLength;
     strLength = sprintf((char *)(uintptr_t)uart_buf,
-                "1:%i 2:%i 3:%i 4:%i 5:%i 6:%i 7:%i 8:%i\r\n",
+                "angle:%5i step:%3i sr:%5i sl:%5i adcbat:%5i vbat:%5i adctemp:%5i temp:%5i\r\n",
                 ch_buf[0], ch_buf[1], ch_buf[2], ch_buf[3], ch_buf[4], ch_buf[5], ch_buf[6], ch_buf[7]);
-
-    // if(UART_DMA_CHANNEL->CNDTR == 0) {
-    //   UART_DMA_CHANNEL->CCR &= ~DMA_CCR_EN;
-    //   UART_DMA_CHANNEL->CNDTR = strLength;
-    //   UART_DMA_CHANNEL->CMAR  = (uint32_t)uart_buf;
-    //   UART_DMA_CHANNEL->CCR |= DMA_CCR_EN;
-    // }
     consoleLogLowPrio((char*)&uart_buf);
-    
-  //#endif
 }
 
 uint8_t dma_buffer[4000];
 uint8_t wait_buffer[3900];
 unsigned int buffer_position = 0;
 
-void consoleLog(char *message)
+void consoleLog(char *message) 
 {
-  //#if defined DEBUG_SERIAL_ASCII && (defined DEBUG_SERIAL_USART2 || defined DEBUG_SERIAL_USART3)
-  //  if(UART_DMA_CHANNEL->CNDTR == 0) {
-  //    UART_DMA_CHANNEL->CCR    &= ~DMA_CCR_EN;
-  //    UART_DMA_CHANNEL->CNDTR   = strlen((char *)(uintptr_t)message);
-  //    UART_DMA_CHANNEL->CMAR    = (uint32_t)message;
-  //    UART_DMA_CHANNEL->CCR    |= DMA_CCR_EN;
-  //  }
-  //#endif
-
 if (huart2.gState == HAL_UART_STATE_READY)
   {  
     // copy wait buffer into send buffer
@@ -127,19 +88,19 @@ void consoleLogLowPrio(char *message)
   if (huart2.gState == HAL_UART_STATE_READY)
   {  
     // copy wait buffer into send buffer
-    for (unsigned int i = 0; i< buffer_position; i++)
-    {
-      dma_buffer[i] = wait_buffer[i];
-    }
+    // for (unsigned int i = 0; i< buffer_position; i++)
+    // {
+    //   dma_buffer[i] = wait_buffer[i];
+    // }
     //append new message
-    for (unsigned int i = 0; i<strlen(message); i++)
-    {
-      dma_buffer[buffer_position+i] = message[i];
-    }  
+    // for (unsigned int i = 0; i<strlen(message); i++)
+    // {
+    //   dma_buffer[buffer_position+i] = message[i];
+    // }  
     // send whole buffer
-    HAL_UART_Transmit_DMA(&huart2, (uint8_t*) dma_buffer, buffer_position+strlen(message)) ;
+    HAL_UART_Transmit_DMA(&huart2, (uint8_t*) message, strlen(message)) ;
     //clear wait buffer
-    buffer_position = 0;
+    //buffer_position = 0;
   }
   else // uart busy
   {
