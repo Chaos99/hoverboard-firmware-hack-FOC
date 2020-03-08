@@ -280,9 +280,7 @@ int main(void) {
   UART2_Init();
   HAL_Delay(50);
   consoleLog("UART2 init done\r\n");
-  HAL_Delay(50);
-  consoleLog("2nd output works\r\n");
-  
+ 
   UART3_Init();
   HAL_Delay(50);
   consoleLog("UART3 init done\r\n");
@@ -297,7 +295,6 @@ int main(void) {
   sensor_init(); // sets internal structs to 0
   consoleLog("sensor init done\r\n");
 
-  consoleLog("beep\r\n");
 
   for (int i = 8; i >= 0; i--) {
     buzzerFreq = (uint8_t)i;
@@ -320,105 +317,7 @@ int main(void) {
   while(1) {
     HAL_Delay(DELAY_IN_MAIN_LOOP); //delay in ms
 
-    #ifdef VARIANT_TRANSPOTTER
-      if(HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) {
-        enable = 0;
-        while(HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) {
-          HAL_Delay(10);
-        }
-        shortBeep(5);
-        HAL_Delay(300);
-        if (HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) {
-          while(HAL_GPIO_ReadPin(BUTTON_PORT, BUTTON_PIN)) {
-            HAL_Delay(10);
-          }
-          longBeep(5);
-          HAL_Delay(350);
-          poweroff();
-        } else {
-          setDistance += 0.25;
-          if (setDistance > 2.6) {
-            setDistance = 0.5;
-          }
-          shortBeep(setDistance / 0.25);
-          saveValue = setDistance * 1000;
-          saveConfig();
-        }
-      }
-
-      #ifdef GAMETRAK_CONNECTION_NORMAL
-        uint16_t distance = CLAMP((adc_buffer.l_rx2) - 180, 0, 4095);
-        steering = (adc_buffer.l_tx2 - 2048) / 2048.0;
-      #endif
-      #ifdef GAMETRAK_CONNECTION_ALTERNATE
-        uint16_t distance = CLAMP((adc_buffer.l_tx2) - 180, 0, 4095);
-        steering = (adc_buffer.l_rx2 - 2048) / 2048.0;
-      #endif
-
-      feedforward = ((distance - (int)(setDistance * 1345)));
-
-      if (nunchuk_connected == 0) {
-        speedL = speedL * 0.8f + (CLAMP(feedforward +  ((steering)*((float)MAX(ABS(feedforward), 50)) * ROT_P), -850, 850) * -0.2f);
-        speedR = speedR * 0.8f + (CLAMP(feedforward -  ((steering)*((float)MAX(ABS(feedforward), 50)) * ROT_P), -850, 850) * -0.2f);
-        if ((speedL < lastSpeedL + 50 && speedL > lastSpeedL - 50) && (speedR < lastSpeedR + 50 && speedR > lastSpeedR - 50)) {
-          if (distance - (int)(setDistance * 1345) > 0) {
-            enable = 1;
-          }
-          if (distance - (int)(setDistance * 1345) > -300) {
-            #ifdef INVERT_R_DIRECTION
-              pwmr = speedR;
-            #endif
-            #ifndef INVERT_R_DIRECTION
-              pwmr = -speedR;
-            #endif
-            #ifdef INVERT_L_DIRECTION
-              pwml = -speedL;
-            #endif
-            #ifndef INVERT_L_DIRECTION
-              pwml = speedL;
-            #endif
-
-            if (checkRemote) {
-              if (!HAL_GPIO_ReadPin(LED_PORT, LED_PIN)) {
-                //enable = 1;
-              } else {
-                enable = 0;
-              }
-            }
-          } else {
-            enable = 0;
-          }
-        }
-        lastSpeedL = speedL;
-        lastSpeedR = speedR;
-
-        timeout = 0;
-      }
-    #endif
-
-    #if defined(CONTROL_NUNCHUK) || defined(SUPPORT_NUNCHUK)
-      if (nunchuk_connected != 0) {
-        Nunchuk_Read();
-        cmd1 = CLAMP((nunchuk_data[0] - 127) * 8, INPUT_MIN, INPUT_MAX); // x - axis. Nunchuk joystick readings range 30 - 230
-        cmd2 = CLAMP((nunchuk_data[1] - 128) * 8, INPUT_MIN, INPUT_MAX); // y - axis
-				
-				#ifdef SUPPORT_BUTTONS
-					button1 = (uint8_t)nunchuk_data[5] & 1;
-					button2 = (uint8_t)(nunchuk_data[5] >> 1) & 1;
-				#endif
-      }
-    #endif
-
-    #ifdef CONTROL_PPM
-      cmd1 = CLAMP((ppm_captured_value[0] - INPUT_MID) * 2, INPUT_MIN, INPUT_MAX);
-      cmd2 = CLAMP((ppm_captured_value[1] - INPUT_MID) * 2, INPUT_MIN, INPUT_MAX);
-			#ifdef SUPPORT_BUTTONS
-				button1 = ppm_captured_value[5] > INPUT_MID;
-				button2 = 0;
-			#endif
-      // float scale = ppm_captured_value[2] / 1000.0f;     // not used for now, uncomment if needed
-    #endif
-
+    
     #ifdef CONTROL_ADC
       // ADC values range: 0-4095, see ADC-calibration in config.h
       #ifdef ADC1_MID_POT
@@ -541,9 +440,20 @@ int main(void) {
     #ifdef VARIANT_HOVERBOARD
     sensor_read_data();  
     //consoleLog("# ");  
-    cmd1 = CLAMP((sensor_data.complete.Angle - INPUT_MID) * 2, INPUT_MIN, INPUT_MAX);
-    cmd2 = CLAMP((sensor_data.complete.Angle - INPUT_MID) * 2, INPUT_MIN, INPUT_MAX);
+    if (sensor_data.read_timeout == 0)
+      timeout ++;
+    else
+      timeout = 0;
 
+    cmd1 = 0; //CLAMP((sensor_data.complete.Angle/3), INPUT_MIN, INPUT_MAX); // steer
+    if (sensor_data.complete.AA_55 == 85) // foot on sensor
+    {
+      cmd2 = CLAMP((sensor_data.complete.Angle/3), INPUT_MIN, INPUT_MAX);  //speed
+    }
+    else
+    {
+      cmd2 = 0;
+    }
     #endif
 
     // Calculate measured average speed. The minus sign (-) is beacause motors spin in opposite directions
@@ -564,58 +474,36 @@ int main(void) {
     speedAvgAbs   = abs(speedAvg);
 
     #ifndef VARIANT_TRANSPOTTER
-      // ####### MOTOR ENABLING: Only if the initial input is very small (for SAFETY) #######
-      if (enable == 0 && (!errCode_Left && !errCode_Right) && (cmd1 > -50 && cmd1 < 50) && (cmd2 > -50 && cmd2 < 50)){
-        shortBeep(6);                     // make 2 beeps indicating the motor enable
-        shortBeep(4); HAL_Delay(100);
-        enable = 1;                       // enable motors
-      }
-
-      // ####### VARIANT_HOVERCAR #######
-      #ifdef VARIANT_HOVERCAR
-        // Calculate speed Blend, a number between [0, 1] in fixdt(0,16,15)
-        uint16_t speedBlend;       
-        speedBlend = (uint16_t)(((CLAMP(speedAvgAbs,30,90) - 30) << 15) / 60);     // speedBlend [0,1] is within [30 rpm, 90rpm]
-
-        // Check if Hovercar is physically close to standstill to enable Double tap detection on Brake pedal for Reverse functionality
-        if (speedAvgAbs < 20) {
-          multipleTapDet(cmd1, HAL_GetTick(), &MultipleTapBreak);   // Break pedal in this case is "cmd1" variable
-        }
-
-        // If Brake pedal (cmd1) is pressed, bring to 0 also the Throttle pedal (cmd2) to avoid "Double pedal" driving          
-        if (cmd1 > 20) {
-          cmd2 = (int16_t)((cmd2 * speedBlend) >> 15);
-        }
-
-        // Make sure the Brake pedal is opposite to the direction of motion AND it goes to 0 as we reach standstill (to avoid Reverse driving by Brake pedal) 
-        if (speedAvg > 0) {
-          cmd1 = (int16_t)((-cmd1 * speedBlend) >> 15);
-        } else {
-          cmd1 = (int16_t)(( cmd1 * speedBlend) >> 15);          
-        }
-      #endif
+      // ####### MOTOR ENABLING: only if no errors and foot switch pressed #######
+      if (enable == 0 && (!errCode_Left && !errCode_Right) && (sensor_data.complete.AA_55 == 85))
+      {
+        // if we werent moving before, only turn on for slow speeds
+        if (speedAvgAbs > 10 || (cmd2 > -50 && cmd2 < 50))
+        {
+          shortBeep(6);                     // make 2 beeps indicating the motor enable
+          HAL_Delay(100);
+          shortBeep(4); 
+          consoleLog("enabeling motors\r\n");
+          enable = 1;                       // enable motors
+        }        
+      } 
 
       // ####### LOW-PASS FILTER #######
-      rateLimiter16(cmd1, RATE, &steerRateFixdt);
+      //rateLimiter16(cmd1, RATE, &steerRateFixdt);
       rateLimiter16(cmd2, RATE, &speedRateFixdt);
-      filtLowPass32(steerRateFixdt >> 4, FILTER, &steerFixdt);
+      //filtLowPass32(steerRateFixdt >> 4, FILTER, &steerFixdt);
       filtLowPass32(speedRateFixdt >> 4, FILTER, &speedFixdt);
-      steer = (int16_t)(steerFixdt >> 20);  // convert fixed-point to integer
+      steer = 0; //= (int16_t)(steerFixdt >> 20);  // convert fixed-point to integer
       speed = (int16_t)(speedFixdt >> 20);  // convert fixed-point to integer    
 
-      // ####### VARIANT_HOVERCAR #######
-      #ifdef VARIANT_HOVERCAR        
-        if (!MultipleTapBreak.b_multipleTap) {  // Check driving direction
-          speed = steer + speed;                // Forward driving          
-        } else {
-          speed = steer - speed;                // Reverse driving
-        }
-      #endif
 
       // ####### MIXER #######
       // speedR = CLAMP((int)(speed * SPEED_COEFFICIENT -  steer * STEER_COEFFICIENT), -1000, 1000);
       // speedL = CLAMP((int)(speed * SPEED_COEFFICIENT +  steer * STEER_COEFFICIENT), -1000, 1000);
       mixerFcn(speed << 4, steer << 4, &speedR, &speedL);   // This function implements the equations above
+
+      // clamp both motors to same speed
+      speedR = speedL;
 
       #ifdef ADDITIONAL_CODE
         ADDITIONAL_CODE;
@@ -635,83 +523,15 @@ int main(void) {
           pwml = speedL;
         #endif
       }
+      else {
+        char t[200];
+        sprintf(t, "Speed change rate to high, not setting new speed %d from old speed %d\r\n", speedL, lastSpeedL);
+        consoleLogLowPrio(t);
+      }
     #endif
 
     lastSpeedL = speedL;
     lastSpeedR = speedR;
-
-    #ifdef VARIANT_TRANSPOTTER
-      if (timeout > TIMEOUT) {
-        pwml = 0;
-        pwmr = 0;
-        enable = 0;
-        #ifdef SUPPORT_LCD
-          LCD_SetLocation(&lcd, 0, 0);
-          LCD_WriteString(&lcd, "Len:");
-          LCD_SetLocation(&lcd, 8, 0);
-          LCD_WriteString(&lcd, "m(");
-          LCD_SetLocation(&lcd, 14, 0);
-          LCD_WriteString(&lcd, "m)");
-        #endif
-
-        HAL_Delay(1000);
-
-        nunchuk_connected = 0;
-      }
-
-      if ((distance / 1345.0) - setDistance > 0.5 && (lastDistance / 1345.0) - setDistance > 0.5) { // Error, robot too far away!
-        enable = 0;
-        longBeep(5);
-        #ifdef SUPPORT_LCD
-          LCD_ClearDisplay(&lcd);
-          HAL_Delay(5);
-          LCD_SetLocation(&lcd, 0, 0);
-          LCD_WriteString(&lcd, "Emergency Off!");
-          LCD_SetLocation(&lcd, 0, 1);
-          LCD_WriteString(&lcd, "Keeper too fast.");
-        #endif
-        poweroff();
-      }
-
-      #ifdef SUPPORT_NUNCHUK
-        if (counter % 500 == 0) {
-          if (nunchuk_connected == 0 && enable == 0) {
-            if (Nunchuk_Ping()) {
-              HAL_Delay(500);
-              Nunchuk_Init();
-              #ifdef SUPPORT_LCD
-                LCD_SetLocation(&lcd, 0, 0);
-                LCD_WriteString(&lcd, "Nunchuk Control");
-              #endif
-              timeout = 0;
-              HAL_Delay(1000);
-              nunchuk_connected = 1;
-            }
-          }
-        }   
-      #endif
-
-      #ifdef SUPPORT_LCD
-        if (counter % 100 == 0) {
-          if (LCDerrorFlag == 1 && enable == 0) {
-
-          } else {
-            if (nunchuk_connected == 0) {
-              LCD_SetLocation(&lcd, 4, 0);
-              LCD_WriteFloat(&lcd,distance/1345.0,2);
-              LCD_SetLocation(&lcd, 10, 0);
-              LCD_WriteFloat(&lcd,setDistance,2);
-            }
-            LCD_SetLocation(&lcd, 4, 1);
-            LCD_WriteFloat(&lcd,batVoltage, 1);
-            LCD_SetLocation(&lcd, 11, 1);
-            //LCD_WriteFloat(&lcd,MAX(ABS(currentR), ABS(currentL)),2);
-          }
-        }
-      #endif
-
-      counter++;
-    #endif
 
 
     // ####### CALC BOARD TEMPERATURE #######
@@ -720,46 +540,16 @@ int main(void) {
     board_temp_deg_c    = (TEMP_CAL_HIGH_DEG_C - TEMP_CAL_LOW_DEG_C) * (board_temp_adcFilt - TEMP_CAL_LOW_ADC) / (TEMP_CAL_HIGH_ADC - TEMP_CAL_LOW_ADC) + TEMP_CAL_LOW_DEG_C;
 
     if (main_loop_counter % 25 == 0) {    // Send data periodically
-
-      // ####### DEBUG SERIAL OUT #######
-      #if defined(DEBUG_SERIAL_USART2) || defined(DEBUG_SERIAL_USART3)
-        #ifdef CONTROL_ADC
-          setScopeChannel(0, (int16_t)adc_buffer.l_tx2);        // 1: ADC1
-          setScopeChannel(1, (int16_t)adc_buffer.l_rx2);        // 2: ADC2
-        #endif
-        #ifdef SENSOR_SERIAL_USART3
-          setScopeChannel(0, (int16_t)sensor_data.complete.Angle);        // 1: Angle
-          setScopeChannel(1, (int16_t)sensor_data.complete.AA_55);        // 2: Step
-        #endif
-        setScopeChannel(2, (int16_t)speedR);                    // 3: output command: [-1000, 1000]
-        setScopeChannel(3, (int16_t)speedL);                    // 4: output command: [-1000, 1000]
-        setScopeChannel(4, (int16_t)adc_buffer.batt1);          // 5: for battery voltage calibration
-        setScopeChannel(5, (int16_t)(batVoltage * BAT_CALIB_REAL_VOLTAGE / BAT_CALIB_ADC)); // 6: for verifying battery voltage calibration
-        setScopeChannel(6, (int16_t)board_temp_adcFilt);        // 7: for board temperature calibration
-        setScopeChannel(7, (int16_t)board_temp_deg_c);          // 8: for verifying board temperature calibration
-        //consoleScope();
-
-      // ####### FEEDBACK SERIAL OUT #######
-      #elif defined(FEEDBACK_SERIAL_USART2) || defined(FEEDBACK_SERIAL_USART3)
-        if(UART_DMA_CHANNEL->CNDTR == 0) {
-          Feedback.start	        = (uint16_t)START_FRAME;
-          Feedback.cmd1           = (int16_t)cmd1;
-          Feedback.cmd2           = (int16_t)cmd2;
-          Feedback.speedR	        = (int16_t)speedR;
-          Feedback.speedL	        = (int16_t)speedL;
-          Feedback.speedR_meas	  = (int16_t)rtY_Left.n_mot;
-          Feedback.speedL_meas	  = (int16_t)rtY_Right.n_mot;
-          Feedback.batVoltage	    = (int16_t)(batVoltage * BAT_CALIB_REAL_VOLTAGE / BAT_CALIB_ADC);
-          Feedback.boardTemp	    = (int16_t)board_temp_deg_c;
-          Feedback.checksum       = (uint16_t)(Feedback.start ^ Feedback.cmd1 ^ Feedback.cmd2 ^ Feedback.speedR ^ Feedback.speedL
-                                    ^ Feedback.speedR_meas ^ Feedback.speedL_meas ^ Feedback.batVoltage ^ Feedback.boardTemp); 
-
-          UART_DMA_CHANNEL->CCR  &= ~DMA_CCR_EN;
-          UART_DMA_CHANNEL->CNDTR = sizeof(Feedback);
-          UART_DMA_CHANNEL->CMAR  = (uint32_t)&Feedback;
-          UART_DMA_CHANNEL->CCR  |= DMA_CCR_EN;          
-        }
-      #endif      
+      // ####### DEBUG SERIAL OUT #######      
+      setScopeChannel(0, (int16_t)sensor_data.complete.Angle);        // 1: Angle
+      setScopeChannel(1, (int16_t)sensor_data.complete.AA_55);        // 2: Step
+      setScopeChannel(2, (int16_t)speedR);                    // 3: output command: [-1000, 1000]
+      setScopeChannel(3, (int16_t)speedL);                    // 4: output command: [-1000, 1000]
+      setScopeChannel(4, (int16_t)adc_buffer.batt1);          // 5: for battery voltage calibration
+      setScopeChannel(5, (int16_t)(batVoltage * BAT_CALIB_REAL_VOLTAGE / BAT_CALIB_ADC)); // 6: for verifying battery voltage calibration
+      setScopeChannel(6, (int16_t)board_temp_adcFilt);        // 7: for board temperature calibration
+      setScopeChannel(7, (int16_t)board_temp_deg_c);          // 8: for verifying board temperature calibration
+      consoleScope();         
     }    
 
     HAL_GPIO_TogglePin(LED_PORT, LED_PIN);
@@ -777,12 +567,23 @@ int main(void) {
 
 
     // ####### BEEP AND EMERGENCY POWEROFF #######
+    if (sensor_data.complete.AA_55 != 85 && cmd2 != 0) {  //foot not on sensor
+      if (enable == 1){
+        consoleLog("Foot raised: stopping\r\n");
+        //enable        = 0;
+        cmd1 = cmd2 = 0;
+        shortBeep(4);                     // make 2 beeps indicating the motor disable
+        HAL_Delay(100);
+        shortBeep(6); 
+      }
+    } 
     if (errCode_Left || errCode_Right) {    // disable motors and beep in case of Motor error - fast beep
-      if (enable)
+      if (enable){
         consoleLog("Motor Error\r\n");
-      enable        = 0;
-      buzzerFreq    = 8;
-      buzzerPattern = 1;
+        enable        = 0;
+        buzzerFreq    = 8;
+        buzzerPattern = 1;
+      }
     } else if ((TEMP_POWEROFF_ENABLE && board_temp_deg_c >= TEMP_POWEROFF && speedAvgAbs < 20) || (batVoltage < BAT_LOW_DEAD && speedAvgAbs < 20)) {  // poweroff before mainboard burns OR low bat 3
       consoleLog("Overtemp or battery low\r\n");
       poweroff();
@@ -791,7 +592,7 @@ int main(void) {
       buzzerFreq    = 4;
       buzzerPattern = 1;
     } else if (batVoltage < BAT_LOW_LVL1 && batVoltage >= BAT_LOW_LVL2 && BAT_LOW_LVL1_ENABLE) {  // low bat 1: slow beep
-      consoleLog("Low Battery Wraning 1\r\n");
+      consoleLog("Low Battery Warning 1\r\n");
       buzzerFreq    = 5;
       buzzerPattern = 42;
     } else if (batVoltage < BAT_LOW_LVL2 && batVoltage >= BAT_LOW_DEAD && BAT_LOW_LVL2_ENABLE) {  // low bat 2: fast beep
@@ -803,7 +604,6 @@ int main(void) {
       buzzerFreq    = 24;
       buzzerPattern = 1;
     } else if (BEEPS_BACKWARD && ((speed < -50 && speedAvg < 0) || MultipleTapBreak.b_multipleTap)) {  // backward beep
-      consoleLog("Backing up ... beepbeepbeep\r\n");
       buzzerFreq    = 5;
       buzzerPattern = 1;
     } else {  // do not beep
