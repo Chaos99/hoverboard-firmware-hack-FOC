@@ -305,7 +305,7 @@ int main(void) {
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_SET);
  
 
-  int16_t lastSpeedL = 0, lastSpeedR = 0;
+  int16_t lastSpeedL = 0, lastSpeedR = 0, lastSpeed = 0;
   int16_t speedL = 0, speedR = 0;
 
   int32_t board_temp_adcFixdt = adc_buffer.temp << 20;  // Fixed-point filter output initialized with current ADC converted to fixed-point
@@ -449,7 +449,8 @@ int main(void) {
     if (sensor_data.complete.AA_55 == 85) // foot on sensor
     {
       int scaling = sensor_data.complete.Angle >> 6;
-      cmd2 = CLAMP(((scaling*scaling*scaling) >> 5) + (sensor_data.complete.Angle >> 1), INPUT_MIN, INPUT_MAX);  //speed
+      //cmd2 = CLAMP(((scaling*scaling*scaling) >> 5) + (sensor_data.complete.Angle >> 1), INPUT_MIN, INPUT_MAX);  //speed
+      cmd2 = CLAMP(sensor_data.complete.Angle, INPUT_MIN, INPUT_MAX);  //speed
     }
     else
     {
@@ -478,8 +479,8 @@ int main(void) {
       // ####### MOTOR ENABLING: only if no errors and foot switch pressed #######
       if (enable == 0 && (!errCode_Left && !errCode_Right) && (sensor_data.complete.AA_55 == 85))
       {
-        // if we werent moving before, only turn on for slow speeds
-        if (/*speedAvgAbs > 10 ||*/ (cmd2 > -50 && cmd2 < 50))
+        // if we werent moving before, only turn on for low angles
+        if (/*speedAvgAbs > 10 ||*/ (cmd2 > -90 && cmd2 < 90))
         {
           shortBeep(6);                     // make 2 beeps indicating the motor enable
           HAL_Delay(100);
@@ -491,20 +492,26 @@ int main(void) {
 
       // ####### LOW-PASS FILTER #######
       //rateLimiter16(cmd1, RATE, &steerRateFixdt);
-      rateLimiter16(cmd2, RATE, &speedRateFixdt);
+      //rateLimiter16(cmd2, RATE, &speedRateFixdt);
       //filtLowPass32(steerRateFixdt >> 4, FILTER, &steerFixdt);
-      filtLowPass32(speedRateFixdt >> 4, FILTER, &speedFixdt);
-      steer = 0; //= (int16_t)(steerFixdt >> 20);  // convert fixed-point to integer
-      speed = (int16_t)(speedFixdt >> 20);  // convert fixed-point to integer    
+      //filtLowPass32(speedRateFixdt >> 4, FILTER, &speedFixdt);
+      //steer = 0; //= (int16_t)(steerFixdt >> 20);  // convert fixed-point to integer
+      //speed = (int16_t)(speedFixdt >> 20);  // convert fixed-point to integer    
 
 
       // ####### MIXER #######
       // speedR = CLAMP((int)(speed * SPEED_COEFFICIENT -  steer * STEER_COEFFICIENT), -1000, 1000);
       // speedL = CLAMP((int)(speed * SPEED_COEFFICIENT +  steer * STEER_COEFFICIENT), -1000, 1000);
-      mixerFcn(speed << 4, steer << 4, &speedR, &speedL);   // This function implements the equations above
-
+      //mixerFcn(speed << 4, steer << 4, &speedR, &speedL);   // This function implements the equations above
+      
       // clamp both motors to same speed
-      speedR = speedL;
+      int16_t Kp = 2;
+      float Ki = 1;
+      int16_t intSpeed = cmd2 + lastSpeed;
+      float Kd = 0.5;
+      int16_t errSpeed = cmd2 - lastSpeed;
+      speedR = 0;
+      speedL = Kp * cmd2 + Ki * (intSpeed) + Kd * errSpeed;;
 
       #ifdef ADDITIONAL_CODE
         ADDITIONAL_CODE;
@@ -512,7 +519,7 @@ int main(void) {
 
 
       // ####### SET OUTPUTS (if the target change is less than +/- 50) #######
-      if ((speedL > lastSpeedL-50 && speedL < lastSpeedL+50) && (speedR > lastSpeedR-50 && speedR < lastSpeedR+50) && timeout < TIMEOUT) {
+      if (/*(speedL > lastSpeedL-50 && speedL < lastSpeedL+50) && (speedR > lastSpeedR-50 && speedR < lastSpeedR+50) &&*/ timeout < TIMEOUT) {
         #ifdef INVERT_R_DIRECTION
           pwmr = speedR;
         #else
@@ -530,7 +537,7 @@ int main(void) {
         consoleLogLowPrio(t);
       }
     #endif
-
+    lastSpeed = cmd2;
     lastSpeedL = speedL;
     lastSpeedR = speedR;
 
