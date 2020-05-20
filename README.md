@@ -1,3 +1,8 @@
+## Chaos99 notes:
+ - this is a fork of the original repo at https://github.com/EmanuelFeru/hoverboard-firmware-hack-FOC
+ - my fork has a branch for the more rare "Gen2" hardware revision (1 main + 2 sensor boards, STM32F103, changed pinout)
+ - my fork is heavily modified, only use it as a reference, do not try to use it directly as-is
+
 # hoverboard-firmware-hack-FOC
 [![Build Status](https://travis-ci.com/EmanuelFeru/hoverboard-firmware-hack-FOC.svg?branch=master)](https://travis-ci.com/EmanuelFeru/hoverboard-firmware-hack-FOC)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
