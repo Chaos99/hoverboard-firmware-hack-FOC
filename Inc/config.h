@@ -28,7 +28,7 @@
 #ifdef VARIANT_TRANSPOTTER
   #define DELAY_IN_MAIN_LOOP    2
 #else
-  #define DELAY_IN_MAIN_LOOP    5     // in ms. default 5. it is independent of all the timing critical stuff. do not touch if you do not know what you are doing.
+  #define DELAY_IN_MAIN_LOOP    3     // in ms. default 5. it is independent of all the timing critical stuff. do not touch if you do not know what you are doing.
 #endif
 #define TIMEOUT                 5     // number of wrong / missing input commands before emergency off
 #define A2BIT_CONV             50     // A to bit for current conversion on ADC. Example: 1 A = 50, 2 A = 100, etc
@@ -120,7 +120,7 @@
     - speedR and speedL: normal driving INPUT_MIN to INPUT_MAX
 */
 // Control selections
-#define CTRL_TYP_SEL    1               // [-] Control type selection: 0 = Commutation , 1 = Sinusoidal, 2 = FOC Field Oriented Control (default)
+#define CTRL_TYP_SEL    2               // [-] Control type selection: 0 = Commutation , 1 = Sinusoidal, 2 = FOC Field Oriented Control (default)
 #define CTRL_MOD_REQ    1               // [-] Control mode request: 0 = Open mode, 1 = VOLTAGE mode (default), 2 = SPEED mode, 3 = TORQUE mode. Note: SPEED and TORQUE modes are only available for FOC!
 #define DIAG_ENA        1               // [-] Motor Diagnostics enable flag: 0 = Disabled, 1 = Enabled (default)
 
