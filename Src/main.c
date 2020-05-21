@@ -305,9 +305,11 @@ int main(void) {
   HAL_GPIO_WritePin(LED_PORT, LED_PIN, GPIO_PIN_SET);
  
 
-  int16_t lastSpeedL = 0, lastSpeedR = 0, lastSpeed = 0;
-  int16_t speedL = 0, speedR = 0;
-
+  int16_t lastCmd = 0;
+  float lastSpeed = 0;
+  float speedL = 0, speedR = 0;
+  float accel = 0;
+  float Kd, Ki, Kp;
   int32_t board_temp_adcFixdt = adc_buffer.temp << 20;  // Fixed-point filter output initialized with current ADC converted to fixed-point
   int16_t board_temp_adcFilt  = adc_buffer.temp;
   int16_t board_temp_deg_c;
@@ -448,7 +450,7 @@ int main(void) {
     cmd1 = 0; //CLAMP((sensor_data.complete.Angle/3), INPUT_MIN, INPUT_MAX); // steer
     if (sensor_data.complete.AA_55 == 85) // foot on sensor
     {
-      int scaling = sensor_data.complete.Angle >> 6;
+      //int scaling = sensor_data.complete.Angle >> 6;
       //cmd2 = CLAMP(((scaling*scaling*scaling) >> 5) + (sensor_data.complete.Angle >> 1), INPUT_MIN, INPUT_MAX);  //speed
       cmd2 = CLAMP(sensor_data.complete.Angle, INPUT_MIN, INPUT_MAX);  //speed
     }
@@ -505,13 +507,41 @@ int main(void) {
       //mixerFcn(speed << 4, steer << 4, &speedR, &speedL);   // This function implements the equations above
       
       // clamp both motors to same speed
-      int16_t Kp = 2;
-      float Ki = 1;
-      int16_t intSpeed = cmd2 + lastSpeed;
-      float Kd = 0.5;
-      int16_t errSpeed = cmd2 - lastSpeed;
-      speedR = 0;
-      speedL = Kp * cmd2 + Ki * (intSpeed) + Kd * errSpeed;;
+      int8_t pOnE = 0;
+      if (enable == 1) {
+      if (ctrlModReq==2) { // for speed mode (doesnt work well)
+         Kp = 0.035;  // critical at 0.7
+         Ki = 0.06;  // ncritcal at 0.08
+         Kd = 0.01;
+      } else // for voltage mode
+      {
+         Kp = 0.35; 
+         Ki = 0.6;  
+         Kd = 0.1;
+      }
+      
+
+      int16_t input = -cmd2;
+      int16_t error = cmd2;
+      int16_t dinput = input - lastCmd;
+      accel = Ki * error;
+
+      if(!pOnE) accel-= Kp * dinput; 
+
+      float output;
+      if(pOnE) output = Kp * error; 
+      else output = 0;
+
+      output += accel - Kd * dinput;      
+      speedL = output;
+      speedR = speedL;
+
+      } else {       
+        accel = 0;   // reset PID
+        speedL = 0;
+        speedR = speedL;
+
+      }
 
       #ifdef ADDITIONAL_CODE
         ADDITIONAL_CODE;
@@ -521,25 +551,25 @@ int main(void) {
       // ####### SET OUTPUTS (if the target change is less than +/- 50) #######
       if (/*(speedL > lastSpeedL-50 && speedL < lastSpeedL+50) && (speedR > lastSpeedR-50 && speedR < lastSpeedR+50) &&*/ timeout < TIMEOUT) {
         #ifdef INVERT_R_DIRECTION
-          pwmr = speedR;
+          pwmr = round(speedR);
         #else
           pwmr = -speedR;
         #endif
         #ifdef INVERT_L_DIRECTION
-          pwml = -speedL;
+          pwml = round(-speedL);
         #else
           pwml = speedL;
         #endif
       }
       else {
         char t[200];
-        sprintf(t, "Speed change rate to high, not setting new speed %d from old speed %d\r\n", speedL, lastSpeedL);
+        sprintf(t, "Speed change rate to high, not setting new speed %f from old speed %f\r\n", speedL, lastSpeed);
         consoleLogLowPrio(t);
       }
     #endif
-    lastSpeed = cmd2;
-    lastSpeedL = speedL;
-    lastSpeedR = speedR;
+    lastCmd = cmd2;
+    lastSpeed = speedL;
+    //lastSpeedR = speedR;
 
 
     // ####### CALC BOARD TEMPERATURE #######
