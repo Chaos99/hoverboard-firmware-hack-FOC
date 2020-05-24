@@ -515,9 +515,9 @@ int main(void) {
          Kd = 0.01;
       } else // for voltage mode
       {
-         Kp = 0.35; 
-         Ki = 0.6;  
-         Kd = 0.1;
+         Kp = 0.4; 
+         Ki = 0.7;  
+         Kd = 0.15;
       }
       
 
@@ -622,6 +622,8 @@ int main(void) {
         //cmd1 = cmd2 = 0;
         shortBeep(4);                     // make 2 beeps indicating the motor disable
         HAL_Delay(100);
+        shortBeep(4);                     // make 2 beeps indicating the motor disable
+        HAL_Delay(100);
         shortBeep(6); 
       }
     } 
@@ -629,11 +631,25 @@ int main(void) {
       if (enable){
         consoleLog("Motor Error\r\n");
         enable        = 0;
-        buzzerFreq    = 8;
-        buzzerPattern = 1;
+        shortBeep(4);                     // make 2 beeps indicating the motor disable
+        HAL_Delay(100);
+        shortBeep(4);                     // make 2 beeps indicating the motor disable
+        HAL_Delay(100);
+        shortBeep(4);                     // make 2 beeps indicating the motor disable
+        HAL_Delay(100);
+        shortBeep(6); 
       }
     } else if ((TEMP_POWEROFF_ENABLE && board_temp_deg_c >= TEMP_POWEROFF && speedAvgAbs < 20) || (batVoltage < BAT_LOW_DEAD && speedAvgAbs < 20)) {  // poweroff before mainboard burns OR low bat 3
       consoleLog("Overtemp or battery low\r\n");
+      shortBeep(4);                     // make 2 beeps indicating the motor disable
+        HAL_Delay(100);
+        shortBeep(4);                     // make 2 beeps indicating the motor disable
+        HAL_Delay(100);
+        shortBeep(4);                     // make 2 beeps indicating the motor disable
+        HAL_Delay(100);
+        shortBeep(4);                     // make 2 beeps indicating the motor disable
+        HAL_Delay(100);
+        shortBeep(6); 
       poweroff();
     } else if (TEMP_WARNING_ENABLE && board_temp_deg_c >= TEMP_WARNING) {  // beep if mainboard gets hot
       consoleLog("Temp Warning\r\n");
