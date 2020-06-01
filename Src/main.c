@@ -485,8 +485,9 @@ int main(void) {
         if (/*speedAvgAbs > 10 ||*/ (cmd2 > -90 && cmd2 < 90))
         {
           shortBeep(6);                     // make 2 beeps indicating the motor enable
-          HAL_Delay(100);
+          HAL_Delay(20);
           shortBeep(4); 
+          //
           consoleLog("enabeling motors\r\n");
           enable = 1;                       // enable motors
         }        
@@ -515,9 +516,9 @@ int main(void) {
          Kd = 0.01;
       } else // for voltage mode
       {
-         Kp = 0.4; 
-         Ki = 0.7;  
-         Kd = 0.15;
+         Kp = 0.5; // 0.4 works
+         Ki = 1.0;  // 0.7 works
+         Kd = 0.17; // 0.15 works
       }
       
 
